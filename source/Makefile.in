@@ -36,8 +36,11 @@ all : build
 
 build : ${TARGETS}
 
-install: build
-	${foreach FILE,${TARGETS},${INSTALL} ${FILE} ${destpkglibexecdir}/${FILE}}
+install : ${TARGETS}
+	[ -d ${destpkglibexecdir} ] || ${INSTALL} -d ${destpkglibexecdir}
+	for FILE in ${.ALLSRC}; do\
+		${INSTALL} $${FILE} ${destpkglibexecdir}/$${FILE};\
+	done
 
 clean : 
 	-rm ${TARGETS}
