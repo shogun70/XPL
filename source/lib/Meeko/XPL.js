@@ -156,7 +156,9 @@ return {
 })();
 
 if (!Meeko.stuff) Meeko.stuff = {};
-Meeko.stuff.xplSystem = new Meeko.XPL.XPLSystem();
+if (!Meeko.stuff.xplSystem) Meeko.stuff.xplSystem = (function() {
+
+var xplSystem = new Meeko.XPL.XPLSystem();
 var traceWindow = this;
 do {
 	if (traceWindow && traceWindow.Meeko && traceWindow.Meeko.stuff && traceWindow.Meeko.stuff.trace) {
@@ -179,13 +181,16 @@ if (!Meeko.stuff.xplSystem.trace) {
 	}
 }
 
-Meeko.stuff.execScript = function(text, callback) {
+return xplSystem;
+})();
+
+if (!Meeko.stuff.execScript) Meeko.stuff.execScript = function(text, callback) {
 	var script = new Meeko.XPL.Script;
 	if (callback) script.onreadystatechange = function() { callback(script.readyState); };
 	script.run(text);
 }
 
-Meeko.stuff.evalScript = function() {
+if (!Meeko.stuff.evalScript) Meeko.stuff.evalScript = function() {
 	return eval(arguments[0]);
 }
 
