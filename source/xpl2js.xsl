@@ -1,16 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-EXBL to XBL transform
+XPL to JS transform
 Copyright 2007, Sean Hogan (http://www.meekostuff.net/)
 All rights reserved
 -->
 
 <xsl:stylesheet
 	exclude-result-prefixes="xsl xbl xpl"
+	xmlns="http://www.w3.org/ns/xbl"
 	xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0"
 	xmlns:xbl="http://www.w3.org/ns/xbl"
 	xmlns:xpl="http://www.meekostuff.net/ns/xpl"
-	xmlns="http://www.w3.org/ns/xbl">
+	xmlns:str="http://exslt.org/strings"
+	extension-element-prefixes="str">
+	
 
 <xsl:output method="text" />
 
@@ -19,8 +22,17 @@ All rights reserved
 </xsl:template>
 
 <xsl:template match="/xpl:package">
-Meeko.stuff.xplSystem.createNamespace("<xsl:value-of select="@namespace" />");
-<xsl:value-of select="@namespace" /> = (function() {
+(function(namespace, defn) {
+	var parts = namespace.split(".");
+	var parent = window;
+	var part = parts.shift();
+	while (parts.length) {
+		if (parent[part] == null) parent[part] = {};
+		parent = parent[part];
+		part = parts.shift();
+	}
+	parent[part] = defn();
+}) ("<xsl:value-of select="@namespace"/>", function() {
 	<xsl:apply-templates />
 return {
 	<xsl:for-each select="xpl:class[@visibility='public' or not(@visibility)]">
@@ -28,7 +40,7 @@ return {
 	</xsl:text>
 	</xsl:for-each>
 }
-})();
+});
 </xsl:template>
 
 <xsl:template match="xpl:script">

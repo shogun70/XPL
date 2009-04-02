@@ -25,8 +25,8 @@ destpkgdemodir ?= @destpkgdemodir@
 .SUFFIXES :
 .SUFFIXES : .html .xhtml .js .xml .xpl .xbl
 
-RESOURCES = 
-TARGETS = xpl
+RESOURCES = xpl2js.xsl
+TARGETS = xpl xpl2js
 
 XSLTPROC = /usr/bin/xsltproc
 INSTALL = /usr/bin/install
@@ -38,8 +38,11 @@ build : ${TARGETS}
 
 install : ${TARGETS}
 	[ -d ${destpkglibexecdir} ] || ${INSTALL} -d ${destpkglibexecdir}
-	for FILE in ${.ALLSRC}; do\
+	for FILE in ${TARGETS}; do\
 		${INSTALL} $${FILE} ${destpkglibexecdir}/$${FILE};\
+	done
+	for FILE in ${RESOURCES}; do\
+		${INSTALL} ${srcdir}/$${FILE} ${destpkglibexecdir}/$${FILE};\
 	done
 
 clean : 
@@ -47,4 +50,7 @@ clean :
 
 xpl: XPL.pl lib/Meeko/XPL.js
 	cat ${.ALLSRC} > ${.TARGET}
+	
+xpl2js: xpl2js.pl
+	cp ${.IMPSRC} ${.TARGET}
 	
