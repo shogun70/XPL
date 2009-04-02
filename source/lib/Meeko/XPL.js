@@ -159,14 +159,14 @@ if (!Meeko.stuff) Meeko.stuff = {};
 if (!Meeko.stuff.xplSystem) Meeko.stuff.xplSystem = (function() {
 
 var xplSystem = new Meeko.XPL.XPLSystem();
-var traceWindow = this;
+var traceWindow = window;
 do {
 	if (traceWindow && traceWindow.Meeko && traceWindow.Meeko.stuff && traceWindow.Meeko.stuff.trace) {
-		Meeko.stuff.xplSystem.trace = {
+		xplSystem.trace = {
 			_log: traceWindow.Meeko.stuff.trace.log,
 			log: function(data) {
-				data.url = Meeko.stuff.xplSystem.documentURI; 
-				data.boundDocumentURI = Meeko.stuff.xplSystem.boundDocumentURI; // FIXME orthogonality
+				data.url = xplSystem.documentURI; 
+				data.boundDocumentURI = xplSystem.boundDocumentURI; // FIXME orthogonality
 				this._log(data);
 			}
 		}
@@ -175,8 +175,8 @@ do {
 	if (traceWindow == top) break; // need to break at top because top.parent == top
 } while (traceWindow = traceWindow.parent);
 
-if (!Meeko.stuff.xplSystem.trace) {
-	Meeko.stuff.xplSystem.trace = {
+if (!xplSystem.trace) {
+	xplSystem.trace = {
 		log: function(data) {}
 	}
 }
