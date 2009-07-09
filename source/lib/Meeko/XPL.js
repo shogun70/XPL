@@ -56,7 +56,6 @@ var XPLSystem = function() {
 	this.prefetch = {};
 	this.contexts = {};
 	this.documentURI = document.documentURI || document.baseURI || document.URL;
-	this.boundDocumentURI = this.documentURI; // FIXME orthogonality
 }
 
 XPLSystem.prototype.createContext = function(ref) {
@@ -93,64 +92,11 @@ XPLSystem.prototype.init = function() {
 	for (var href in xplSystem.contexts) require(href);
 }
 
-var Script = function() {
-	this.readyState = "initialized";
-}
-
-Script.runList = [];
-
-Script.prototype.run = function(text) {
-	function setText(_elt, _text) {
-		_elt.text = _text;
-		if (!_elt.innerHTML) _elt.appendChild(document.createTextNode(_text));
-	}
-	var scriptElt = document.createElement("script");
-	scriptElt.type = "text/javascript";
-
-	this.scriptElement = scriptElt;
-	this.scriptIndex = Script.runList.length;
-	Script.runList.push(this);
-
-	this.readyState = "loaded";
-	setText(scriptElt, 
-		'try {\n' +
-		text + '\n' +
-		' Meeko.XPL.Script.runList[' + this.scriptIndex + '].readyState = "complete";\n' +
-		'}\n' +
-		'catch (__xplError__) {\n' +
-		' Meeko.XPL.Script.runList[' + this.scriptIndex + '].readyState = "error";\n' +
-		'}\n'
-	);
-	
-	var callbackElt = document.createElement("script");
-	callbackElt.type = "text/javascript";
-	
-	this.callbackElement = callbackElt;
-	setText(callbackElt, 'window.setTimeout(function() { Meeko.XPL.Script.runList[' + this.scriptIndex + '].callback(); }, 10);');
-
-	var head = document.getElementsByTagName("head")[0];
-	head.appendChild(scriptElt);
-	head.appendChild(callbackElt);
-}
-
-Script.prototype.callback = function() {
-	var head = this.scriptElement.parentNode;
-	head.removeChild(this.scriptElement);
-	head.removeChild(this.callbackElement);
-	if (this.readyState == "error") {
-	}
-	else if (this.readyState == "loaded") {
-		this.readyState = "syntax-error";
-	}
-	if (this.onreadystatechange) this.onreadystatechange();
-}
-
 
 return {
 	Namespace: Namespace,
 	XPLContext: XPLContext,
-	XPLSystem: XPLSystem,
-	Script: Script
+	XPLSystem: XPLSystem
 }
 
 })();
@@ -165,8 +111,7 @@ do {
 		xplSystem.trace = {
 			_log: traceWindow.Meeko.stuff.trace.log,
 			log: function(data) {
-				data.url = xplSystem.documentURI; 
-				data.boundDocumentURI = xplSystem.boundDocumentURI; // FIXME orthogonality
+				data.url = xplSystem.documentURI;
 				this._log(data);
 			}
 		}
@@ -183,16 +128,6 @@ if (!xplSystem.trace) {
 
 return xplSystem;
 })();
-
-if (!Meeko.stuff.execScript) Meeko.stuff.execScript = function(text, callback) {
-	var script = new Meeko.XPL.Script;
-	if (callback) script.onreadystatechange = function() { callback(script.readyState); };
-	script.run(text);
-}
-
-if (!Meeko.stuff.evalScript) Meeko.stuff.evalScript = function() {
-	return eval(arguments[0]);
-}
 
 // NOTE emulate firebug behavior which complements the XMLHttpRequest wrapper in Meeko.xml
 if (XMLHttpRequest && !XMLHttpRequest.wrapped) var XMLHttpRequest = (function() {

@@ -1,10 +1,11 @@
 
 # Some BSD compatibility declarations
+# TODO double-check ARCHIVE, PREFIX
 .ALLSRC = $^
-.ARCHIVE = $! # is this valid?
+.ARCHIVE = $!
 .IMPSRC = $<
 .MEMBER = $%
 .OODATE = $?
-.PREFIX = $* # is this valid
+.PREFIX = $*
 .TARGET = $@
 .CURDIR = ${CURDIR}

@@ -34,7 +34,11 @@ sub new {
 	return $self;
 }
 
-
+# resolve(href, baseHref)
+# 1. create a file:// url from the working-directory -> pathUri
+# 2. if baseHref is relative then create absolute-url using pathUri -> baseUri
+# 3. if href is relative then create absolute-url using baseUri -> uri
+# 4. if href is a file:// url then create a relative-url relative to pathUri -> relUri
 sub resolve() {
 	my $self = shift;
 	my $href = shift;
@@ -46,6 +50,11 @@ sub resolve() {
 	return $relUri->as_string;
 }
 
+# loadURL(uri)
+# load an absolute-url
+# 1. if already loaded (memCache) then return 
+# 2. if command-line-options say it is cached on disk (diskCache) then resolve to file://...
+# 3. fetch with HTTP::Request
 sub loadURL() {
 	my $self = shift;
 	my $uri = shift;
@@ -60,6 +69,8 @@ sub loadURL() {
 	return $file;
 }
 
+# preprocess(href)
+# load href and extract dependency info (requiredContexts)
 sub preprocess() {
 	my $self = shift;
 	my $href = shift || $self->{href};
@@ -69,7 +80,7 @@ sub preprocess() {
 	my $context = $self->createContext($document, $href);
 	$self->{contexts}->{$href} = $context;
 	foreach my $requireHref (@{$context->{requiredContexts}}) {
-		$self->{contexts}->{$requireHref} || $self->preprocess($requireHref);
+		$self->preprocess($requireHref) unless $self->{contexts}->{$requireHref};
 	}
 }
 
@@ -120,45 +131,49 @@ sub createContext() {
 	};
 	$context->{owner} = $document;
 	
-	my $node = $document->firstChild;
-	while ($node) {
-		(1 == $node->nodeType) and last;
-		if (7 == $node->nodeType) {
-			my $pi = XMLProcessingInstruction->new($node);
-			($pi && $pi->target) or next;
-			for ($pi->target) {
-				/xpl-param/ && do {
-					my $name = $pi->attributes->{name};
-					my $value = $self->expandParams($pi->attributes->{value});
-					push @{$context->{params}}, { name => $name, value => $value};
-				};
-				/xpl-require/ && do {
-					my $requireHref = $self->expandParams($pi->attributes->{href});
-					my $requireUri = $self->resolve($requireHref, $documentURI);
-					push @{$context->{requiredContexts}}, $requireUri;
-				};
-				/xpl-prefetch/ && do {
-					my $prefetchHref = $self->expandParams($pi->attributes->{href});
-					my $prefetchUri = $self->resolve($prefetchHref, $documentURI);
-					push @{$context->{prefetch}}, $prefetchUri;
-				};
-			}
-		}
-		$node = $node->nextSibling;
-	}
-	
 	my $head = $document->getElementsByTagName("head")->[0];
-	my $scriptElts = $head->getElementsByTagName("script");
-	for my $script (@$scriptElts) {
-		my $scriptSrc = $script->getAttribute("src");
-		my $scriptUri = "";
-		my $scriptText = $script->textContent . "\n";
-		if ($scriptSrc) {
-			$scriptText = "";
-			my $scriptHref = $self->expandParams($scriptSrc);
-			$scriptUri = $self->resolve($scriptHref, $documentURI);
+
+	NODE: for (my $node=$head->firstChild; $node; $node=$node->nextSibling) {
+		(1 != $node->nodeType) and next;
+		if ("meta" eq $node->localname) {
+			my $name = $node->getAttribute("name");
+			my $value = $self->expandParams($node->getAttribute("content"));
+			push @{$context->{params}}, { name => $name, value => $value};
+			next NODE;
 		}
-		push @{$context->{scripts}}, { src => $scriptUri, text => $scriptText };
+		if ("link" eq $node->localname) {
+			my $rel = $node->getAttribute("rel");
+			if ("prefetch" eq $rel) {
+				my $prefetchHref = $self->expandParams($node->getAttribute("href"));
+				my $prefetchUri = $self->resolve($prefetchHref, $documentURI);
+				push @{$context->{prefetch}}, $prefetchUri;
+				next NODE;
+			}
+			next NODE;
+		}
+		if ("script" eq $node->localname) {
+			my $type = $node->getAttribute("type") || "";
+			if ("text/html" eq $type or "application/xml+xhtml" eq $type) {
+				my $requireHref = $self->expandParams($node->getAttribute("src"));
+				(scalar @{$context->{scripts}}) and die "Script contexts must precede all scripts: src=$requireHref\n";
+				my $requireUri = $self->resolve($requireHref, $documentURI);
+				push @{$context->{requiredContexts}}, $requireUri;
+				next NODE;
+			};
+			if ("text/javascript" eq $type or "" eq $type) {
+				my $scriptSrc = $node->getAttribute("src");
+				my $scriptUri = "";
+				my $scriptText = $node->textContent . "\n";
+				if ($scriptSrc) {
+					$scriptText = "";
+					my $scriptHref = $self->expandParams($scriptSrc);
+					$scriptUri = $self->resolve($scriptHref, $documentURI);
+				}
+				push @{$context->{scripts}}, { src => $scriptUri, text => $scriptText };
+				next NODE;
+			};
+			next NODE;
+		}
 	}
 	
 	return $context;
@@ -230,32 +245,6 @@ $scriptText;
 }
 
 } # end XPLBuilder package
-
-{
-	
-package XMLProcessingInstruction;
-
-sub new {
-	my $class = shift;
-	my $node = shift;
-	($node && 7 == $node->nodeType) or die "Cannot create XMLProcessingInstruction interface";
-	my $self = {};
-	bless($self, $class);
-	$self->{owner} = $node;
-	return $self;
-}
-
-
-sub target { return $_[0]->{owner}->nodeName; }
-sub data { return $_[0]->{owner}->getData; }
-sub attributes {
-	my $self = shift;
-	my $data = $self->{owner}->getData;
-	my %result = $data =~ /(\w+)="([^"]*)"/g;
-	return \%result;
-}
-
-} # end XMLProcessingInstruction
 
 my $usage = "xpl [--disk-cache uri fname] [--param name value] [--make-depend] file\n";
 my $href;
